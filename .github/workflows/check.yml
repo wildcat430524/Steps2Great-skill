@@ -20,6 +20,11 @@ jobs:
       - name: Verify SKILL.md loads (real YAML parser)
         run: node _build/verify-skill-load.mjs
 
+      # 状态校验器回归测试：把弱模型实测抓到的 3 个缺陷钉住
+      # （I11 时序缺口 / I6 备注写法误报 / I3 惩罚「待建」自述）
+      - name: State validator regression tests
+        run: node tests/regression-state.mjs
+
       # 注意：CI 上没有上游 StepsToGreat 检出，check.mjs 会自动跳过镜像一致性那一步，
       # 并退化为内置严格子集解析（--no-yaml 路径），这两条都是设计好的降级行为。
       - name: Repo self-check

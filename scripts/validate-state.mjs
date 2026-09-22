@@ -78,15 +78,32 @@ function isPlaceholder(v) {
   if (/^[—–-]/.test(t)) return true;
   if (/^`.+`$/.test(t) && /^`<[^>]*>`$/.test(t)) return true; // `<xxx>`
   if (/^<.*>$/.test(t)) return true;
+  // 「自述尚未创建」= 合法的未到时状态，不是「忘了填」。
+  // 真实写法（弱模型实测，两种都对但形式不同）：
+  //   ① `我的学习/学科/Python/00-摸底测试.md（待建，学生作答后创建）`
+  //   ② `待发布（摸底通过后建 我的学习/学科/Python/01-<课名>/01_教学引导.md）`
+  // 模型在**诚实标注文件还没建**；判成「指向不存在的文件」等于惩罚诚实。
+  // 与 03_落档事件表 §6「情形 A（尚未发布）」同义：给提示、不判失败。
+  if (/待建|待发布|尚未|未创建|未发布|作答后(创建|生成)|还没建|not yet|to be created|pending/i.test(t)) return true;
   return false;
 }
 
-/** 去掉 markdown 装饰与反引号，取出裸值 */
+/** 去掉 markdown 装饰与反引号，取出裸值。
+ *  **不剥括号说明** —— 那是「自述尚未创建」的信息载体，必须留给 isPlaceholder 判断；
+ *  只有在真要当路径解析时才由 resolveRel / linkTarget 剥掉。 */
 function clean(v) {
   if (v === undefined) return '';
   return String(v)
     .replace(/`/g, '')
     .replace(/\*\*/g, '')
+    .trim();
+}
+
+/** 把「路径 + 括号说明」削成纯路径（仅用于真的要解析路径时） */
+function stripPathNote(v) {
+  if (v === undefined) return '';
+  return String(v)
+    .replace(/[（(][^（()）]*[)）]\s*$/g, '')
     .trim();
 }
 
@@ -267,7 +284,8 @@ function validate(rootDir) {
 
   const resolveRel = (v) => {
     if (isPlaceholder(v)) return undefined;
-    const cleaned = clean(v).split('#')[0].trim();
+    // 到这一步才剥括号说明（`xx.md（待建）` → `xx.md`）
+    const cleaned = stripPathNote(clean(v)).split('#')[0].trim();
     if (!cleaned) return undefined;
     return resolveAny(cleaned);
   };
@@ -361,21 +379,32 @@ function validate(rootDir) {
   };
 
   /** 从表格单元格里取出「证据文件路径」。
-   *  宽容三种真实写法：
+   *  宽容四种真实写法：
    *    ① markdown 链接 `[x](路径)`
    *    ② 裸路径 `学科/xx/01_学生回答.md`
-   *    ③ 路径 + 说明 `学科/xx/01_学生回答.md；首次 1 处概念错误…`
-   *  ③ 是关键：备注列常把「证据入口」和「一句结论」写在同格里，
-   *  不切开就会把整串当成路径 → 误报 I6。故按常见分隔符取第一段，
-   *  且要求它像路径（含 `/` 或以 `.md` 结尾）。 */
+   *    ③ 带标签 + 反引号 + 后缀说明：`证据：\`学科/xx/01_学生回答.md\`「最终复评结果」（2 处代改…）`
+   *    ④ 路径 + 说明 `学科/xx/01_学生回答.md；首次 1 处概念错误…`
+   *
+   *  ③ 是最容易踩的：备注列常把「证据入口」和「一句结论」写在同格里，
+   *  若只按分隔符取第一段，会拿到 `证据：\`学科/xx/01_学生回答.md\`「最终复评结果」（2`
+   *  —— 它**含有 `/`**，于是通过了「像不像路径」的检查，却根本 resolve 不出来 → 误报 I6。
+   *  （弱模型实测 GLM-5.3-Flash 就是这样写备注的，被误判为「证据文件不存在」。）
+   *  正确做法：优先抠出**以 .md 结尾的路径本身**，而不是取第一个片段。 */
   const linkTarget = (cell) => {
     if (!cell) return undefined;
+    // ① markdown 链接最优先
     const m = /\[[^\]]*\]\(([^)\s]+)\)/.exec(cell);
-    const raw = m ? m[1] : cell.split(/[；;，,\s]/)[0];
-    const cleaned = raw.split('#')[0].trim();
-    if (!cleaned) return undefined;
-    if (!m && !/\/|\.md$/i.test(cleaned)) return undefined; // 不像路径就不当路径
-    return cleaned || undefined;
+    if (m) return m[1].split('#')[0].trim() || undefined;
+    // ②③④ 抠出第一个「像路径」的片段：允许中文/字母/数字/._-/ 与反引号包裹
+    const candidate = /`([^`]*?\.md\#?[^`]*)`|([\w\u4e00-\u9fa5./\-]*\.md)/i.exec(cell);
+    if (candidate) {
+      const raw = (candidate[1] ?? candidate[2]).split('#')[0].trim();
+      if (raw) return raw;
+    }
+    // 退化：整格当成单一路径（老写法）
+    const first = cell.split(/[；;，,\s]/)[0].trim();
+    if (first && /\/|\.md$/i.test(first)) return first;
+    return undefined;
   };
 
   // ── I6 / I7 / I8：掌握声明必须有证据 ──────────────────────
@@ -406,7 +435,8 @@ function validate(rootDir) {
       problems.push(`[I6] 📊「${m.topic}」标为已掌握，但 ${relAnswer} 里${v.reason} —— 掌握缺少证据`);
       continue;
     }
-    // I11：重复小节 / 残留模板占位
+    // I11：重复小节 / 残留模板占位（注：这里只顺手查「已掌握」行引用的文档；
+    // 全量扫描在下面的独立 I11 段，见那段注释里的原因）
     const dups = checkDuplicateSections(answerText);
     if (dups.length) {
       problems.push(`[I11] ${relAnswer}：${dups.join('；')} —— 同一信息写多处，接手时不敢确定哪份准`);
@@ -433,6 +463,62 @@ function validate(rootDir) {
     if (!lessons.some((l) => l.num === curLessonNum)) {
       warnings.push(`[I9] 🚦 当前课次 #${curLessonNum} 没有出现在 📚 课次索引里`);
     }
+  }
+
+  // ── I11（全量）：所有回答文档都查重复小节 / 残留占位 ──────
+  //
+  // 为什么必须独立成段、扫**全部**回答文档：
+  // I11 原先写在上面 `isMastered` 循环体内部，只有「某一课被标为已掌握」时
+  // 才会顺带检查那一份回答文档。后果是：一份回答文档若已经出现两份
+  // 「最终复评结果」（正是 I11 想拦的「同一信息写多处」），
+  // 而 📊 里对应行还是 `⏳ 待作答` / 尚未写入，校验器**照样 PASSED**。
+  // 弱模型实测（DeepSeek-V4.1-Flash off）就撞上了这个时序缺口 ——
+  // 它一度同时存在空占位块与已填小节，而校验器报 PASSED，是它自己 grep 才发现的。
+  // 判据本来就与「是否已声明掌握」无关：**同一文档出现两份复评区就是错的**，
+  // 无论当时掌握表写了什么。
+  {
+    const seenDocs = new Set();
+    for (const l of lessons) {
+      // 只对**回答文档**做重复小节检查（教学文档里没有这两个小节）。
+      // 注意不要把教学文档路径先塞进 seenDocs —— 档案里「教学文档」与「回答文档」
+      // 常常指向同一个文件，先塞会让随后那一次检查被当成「已看过」而跳过。
+      const raw = l.answer;
+      if (isPlaceholder(raw)) continue;
+      const target = linkTarget(raw) || clean(raw).split('#')[0].trim();
+      if (!target || !/\.md$/i.test(target)) continue;
+      const abs = resolveAny(target);
+      if (!existsSync(abs) || seenDocs.has(abs)) continue;
+      seenDocs.add(abs);
+      const dups = checkDuplicateSections(readFileSync(abs, 'utf8'));
+      if (dups.length) {
+        problems.push(`[I11] ${target}：${dups.join('；')} —— 同一信息写多处，接手时不敢确定哪份准`);
+      }
+    }
+    // 兜底：📚 索引没登记、但磁盘上确实存在的回答文档也要查
+    // （例如学生在摸底/中途阶段，索引还没补齐的情形）
+    const bucket = join(rootDir, '我的学习', '学科');
+    const walkAnswers = (dir) => {
+      if (!existsSync(dir)) return;
+      for (const name of readdirSync(dir)) {
+        const abs = join(dir, name);
+        let st;
+        try {
+          st = statSync(abs);
+        } catch {
+          continue;
+        }
+        if (st.isDirectory()) walkAnswers(abs);
+        else if (name === '01_学生回答.md' && !seenDocs.has(abs)) {
+          seenDocs.add(abs);
+          const dups = checkDuplicateSections(readFileSync(abs, 'utf8'));
+          if (dups.length) {
+            const relDoc = relative(rootDir, abs).split(sep).join('/');
+            problems.push(`[I11] ${relDoc}：${dups.join('；')} —— 同一信息写多处，接手时不敢确定哪份准`);
+          }
+        }
+      }
+    };
+    walkAnswers(bucket);
   }
 
   // ── I5：⏳ 待办表的证据入口存在 ───────────────────────────

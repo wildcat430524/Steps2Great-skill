@@ -16,9 +16,11 @@
     "init": "node scripts/init-workspace.mjs",
     "update": "node scripts/update.mjs --check",
     "check": "node scripts/check.mjs",
+    "test": "node tests/regression-state.mjs",
     "verify:load": "node _build/verify-skill-load.mjs",
     "sync": "node _build/sync-from-upstream.mjs",
-    "verify": "node _build/verify-skill-load.mjs && node scripts/check.mjs"
+    "score": "node _build/score-workspace.mjs",
+    "verify": "node _build/verify-skill-load.mjs && node tests/regression-state.mjs && node scripts/check.mjs"
   },
   "files": [
     "SKILL.md",
