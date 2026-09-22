@@ -16,7 +16,8 @@
  */
 
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
-import { join, resolve, relative } from 'node:path';
+import { join, resolve, relative, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 
 const args = process.argv.slice(2);
@@ -26,9 +27,29 @@ const argOf = (n, d) => {
 };
 
 const ROOT = resolve(argOf('--root', '.'));
-const SKILL = resolve(
-  argOf('--skill', join(process.env.USERPROFILE ?? '', '.dsh', 'skills', 'steps2great-skill')),
-);
+/**
+ * 校验器位置解析顺序：
+ *   ① 显式 --skill
+ *   ② 已安装的 skill 目录（~/.dsh/skills/steps2great-skill）
+ *   ③ **本仓库自己**（跑分的人通常就在仓库里）
+ * 为什么要有 ③：把 skill 临时卸掉之后，跑分器会「找不到校验器」而把 F 维判成 1/2，
+ * 于是同一份产出在不同时刻得到不同分数 —— 那是跑分器的不稳定，不是模型的差异。
+ * 跑分器的输入应当只有「被测产出」，不该受本机装了没装 skill 影响。
+ */
+function resolveSkill() {
+  const explicit = argOf('--skill');
+  const candidates = [
+    explicit,
+    join(process.env.USERPROFILE ?? '', '.dsh', 'skills', 'steps2great-skill'),
+    join(dirname(fileURLToPath(import.meta.url)), '..'),
+  ].filter(Boolean);
+  for (const c of candidates) {
+    const abs = resolve(c);
+    if (existsSync(join(abs, 'scripts', 'validate-state.mjs'))) return abs;
+  }
+  return resolve(explicit ?? join(process.env.USERPROFILE ?? '', '.dsh', 'skills', 'steps2great-skill'));
+}
+const SKILL = resolveSkill();
 
 if (!existsSync(ROOT)) {
   console.error(`❌ 找不到工作区：${ROOT}`);
@@ -39,6 +60,27 @@ const findings = [];
 const add = (dim, level, msg) => findings.push({ dim, level, msg });
 const read = (p) => (existsSync(p) ? readFileSync(p, 'utf8') : undefined);
 const rel = (p) => relative(ROOT, p).split('\\').join('/');
+
+/**
+ * 判断覆盖层里有没有**真正生效**的规则。
+ *
+ * 不能简单地「去掉 HTML 注释再看有没有 `- `」—— 因为 `我的规则.md` 里
+ * 有一节是**用代码块示范怎么取消注释**的：
+ *     ```markdown
+ *     <!-- 改之前：这行是注释，不生效 -->
+ *     <!-- - 每轮出题：2 题 -->
+ *     <!-- 改之后：生效了，覆盖框架默认 -->
+ *     - 每轮出题：1 题
+ *     ```
+ * 代码块里那行 `- 每轮出题：1 题` 是**示例文本**，不是生效规则。
+ * 不排除代码块就会把「原样未改的脚手架」误判成「学生写过规则」。
+ * （踩过：GLM-5.2 的规则文件与脚手架逐字节相同，却被判 A 维扣分。）
+ */
+function hasActiveRules(text) {
+  const noCode = text.replace(/```[\s\S]*?```/g, ''); // 先整块移除围栏代码
+  const noComment = noCode.replace(/<!--[\s\S]*?-->/g, ''); // 再移除 HTML 注释
+  return /^\s*-\s+\S/m.test(noComment);
+}
 
 function walk(dir, out = []) {
   if (!existsSync(dir)) return out;
@@ -89,7 +131,7 @@ if (!hasLesson) {
   if (rules !== undefined) {
     if (original !== undefined && rules.trim() === original.trim()) {
       add('A 接手顺序', 'ok', '我的规则.md 保持全注释（空覆盖层被正确尊重）');
-    } else if (/^-\s/m.test(rules.replace(/<!--[\s\S]*?-->/g, ''))) {
+    } else if (hasActiveRules(rules)) {
       add('A 接手顺序', 'warn', '我的规则.md 被写入 —— 需人工确认是否经学生同意');
     } else {
       add('A 接手顺序', 'ok', '我的规则.md 无生效规则');
@@ -263,10 +305,18 @@ for (const f of walk(ROOT)) {
   const r = rel(f);
   const isScaffold = SCAFFOLD.has(r) || r === '.steps2great.json';
   // ① 路径口径错：工作区产出里出现 skill 目录口径（脚手架文件豁免）
+  //
+  // 注意：模板里**本来就该**写「协议/xx.md（在 skill 的 references/ 下）」这种说明
+  // —— 那是我们主动改写的正确结果（避免复制进工作区变死链），不是模型的口径错误。
+  // 只有**以链接形式**指向 skill 目录才算错（那会在工作区里变死链）。
   if (!isScaffold) {
-    const skillish = t.match(/references\/(协议|学科包|模板)|\.dsh[\\/]skills/g);
-    if (skillish) {
-      add('封装·路径口径', 'warn', `${r} 出现 skill 目录口径路径（${skillish[0]}）—— 工作区产出不该有`);
+    const badLink = [...t.matchAll(/\[[^\]]*\]\(([^)\s]+)\)/g)]
+      .map((m) => m[1])
+      .find((tg) => /(\.dsh[\\/]skills|references\/(协议|学科包|模板|示例|教程))/.test(tg));
+    if (badLink) {
+      add('封装·路径口径', 'warn', `${r} 用**链接**指向 skill 目录（${badLink}）—— 工作区里是死链`);
+    } else if (/\.dsh[\\/]skills/.test(t) && !/（在 skill 的 references\/ 下）/.test(t)) {
+      add('封装·路径口径', 'warn', `${r} 出现 skill 安装路径（.dsh/skills）`);
     }
   }
   // ② 死链（脚手架里的说明性路径不算死链目标）

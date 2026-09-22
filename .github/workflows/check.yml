@@ -25,6 +25,11 @@ jobs:
       - name: State validator regression tests
         run: node tests/regression-state.mjs
 
+      # 镜像脚本回归测试：钉住「sync 覆盖 skill 侧修复」这个坑。
+      # CI 上没有上游检出时该测试自动跳过（打印 SKIP 后退出 0）。
+      - name: Mirror script regression tests
+        run: node tests/regression-sync.mjs
+
       # 注意：CI 上没有上游 StepsToGreat 检出，check.mjs 会自动跳过镜像一致性那一步，
       # 并退化为内置严格子集解析（--no-yaml 路径），这两条都是设计好的降级行为。
       - name: Repo self-check

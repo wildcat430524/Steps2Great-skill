@@ -38,6 +38,19 @@ const UPSTREAM_ONLY = /(^|\/)(tests|docs\/simulations\/_|宣传视频)\//;
 /** 这些文件允许出现占位词（模板 / 示例） */
 const TEMPLATE_OK = [/^references\/模板\//, /^references\/学科包\/_/, /^templates\/workspace\//];
 
+/**
+ * 模板的**虚拟目标位置** —— 模板里的相对链接是按「被复制到哪儿」写的，
+ * 不是按 `references/模板/` 写的。校验链接时要用这个基准，否则会把
+ * 正确的链接误判成坏链。（上游 `_tools/check.mjs` 用的是同一套思路。）
+ */
+const TEMPLATE_VIRTUAL_BASE = {
+  '学习档案模板.md': '我的学习',
+  '课程路线模板.md': '我的学习/学科/<学科>',
+  '摸底测试模板.md': '我的学习/学科/<学科>',
+  '学生回答模板.md': '我的学习/学科/<学科>/NN-<课名>',
+  '教学引导模板.md': '我的学习/学科/<学科>/NN-<课名>',
+};
+
 function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {
     if (SKIP_DIRS.has(name)) continue;
@@ -129,6 +142,7 @@ for (const abs of files) {
 
   // 相对链接
   const dir = dirname(abs);
+  const tplBase = TEMPLATE_VIRTUAL_BASE[r.split('/').pop()];
   for (const m of text.matchAll(/\[([^\]]*)\]\(([^)\s]+)\)/g)) {
     const target = m[2];
     if (/^(https?:|mailto:|#)/.test(target)) continue;
@@ -139,6 +153,16 @@ for (const abs of files) {
     if (AGENTS_ALIAS.test(p)) continue; // 镜像里保留的上游 AGENTS.md 引用
     if (UPSTREAM_ONLY.test(p)) continue; // 上游专属、已降级说明
     if (/^\.\.\/\.\.\/\.\.\/\.\.\//.test(p)) continue; // 模板里的虚拟目标目录
+    // 模板：链接是按「模板将被复制到的位置」写的，而那个位置（学生工作区）在本仓库里
+    // 并不存在，所以**无法**在这里校验工作区内部链接。
+    // 能校验的只有一件事，也正是我们真正关心的：**框架内部链接必须已被改写成文字**
+    // （框架目录不会出现在学生工作区里，留成链接就是死链 —— GLM-5.2 实测踩过）。
+    if (tplBase !== undefined) {
+      if (/^(协议|学科包|模板|示例|教程|docs)\//.test(p) || /(^|\/)(AGENTS|CLAUDE)\.(md|en\.md)$/.test(p)) {
+        problems.push(`${r}: 模板里的框架链接未被改写（复制进工作区会成死链）→ ${target}`);
+      }
+      continue;
+    }
     const absTarget = resolve(dir, pathPart);
     if (!existsSync(absTarget)) {
       // 允许 link 指向仓库根的绝对式相对路径（如 协议/xx.md 实际在 references/协议/）
