@@ -1,0 +1,53 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # 加载器视角：frontmatter 必须能被真实 YAML 解析器接受，
+      # 否则 skill 会静默加载不上（见 CONTRIBUTING.md 的踩坑记录）
+      - name: Verify SKILL.md loads (real YAML parser)
+        run: node _build/verify-skill-load.mjs
+
+      # 注意：CI 上没有上游 StepsToGreat 检出，check.mjs 会自动跳过镜像一致性那一步，
+      # 并退化为内置严格子集解析（--no-yaml 路径），这两条都是设计好的降级行为。
+      - name: Repo self-check
+        run: node scripts/check.mjs
+
+      - name: Init a throwaway workspace
+        run: node scripts/init-workspace.mjs --root .tmp-workspace
+
+      - name: Validate the fresh workspace state
+        run: node scripts/validate-state.mjs --root .tmp-workspace
+
+      # 断言 update 只动脚手架，**绝不碰**学生的学习记录与规则：
+      # 先给规则文件追加一行私有内容并记下哈希，跑完 update 后哈希必须不变。
+      - name: Confirm student assets are never overwritten
+        run: |
+          set -e
+          RULE=.tmp-workspace/我的学习/我的规则.md
+          PROFILE=.tmp-workspace/我的学习/00-学习档案.md
+          echo "<!-- 我的私有笔记：不允许被覆盖 -->" >> "$RULE"
+          before_rule=$(sha256sum "$RULE" | cut -d' ' -f1)
+          before_profile=$(sha256sum "$PROFILE" | cut -d' ' -f1)
+
+          node scripts/update.mjs --root .tmp-workspace
+
+          after_rule=$(sha256sum "$RULE" | cut -d' ' -f1)
+          after_profile=$(sha256sum "$PROFILE" | cut -d' ' -f1)
+
+          test "$before_rule" = "$after_rule" || { echo "❌ 规则文件被 update 改动了"; exit 1; }
+          test "$before_profile" = "$after_profile" || { echo "❌ 学习档案被 update 改动了"; exit 1; }
+          grep -q "我的私有笔记" "$RULE" || { echo "❌ 私有内容丢失"; exit 1; }
+          echo "✅ update 未触碰学生资产（规则文件与学习档案哈希不变）"
