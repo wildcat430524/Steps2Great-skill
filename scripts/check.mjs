@@ -171,6 +171,21 @@ for (const abs of files) {
   }
 }
 
+// ── 6. 加载器视角：SKILL.md 能否被真实 YAML 解析器接受 ────────────────
+{
+  const v = join(ROOT, '_build', 'verify-skill-load.mjs');
+  if (existsSync(v)) {
+    try {
+      const out = execFileSync(process.execPath, [v, join(ROOT, 'SKILL.md')], { encoding: 'utf8', cwd: ROOT });
+      if (!QUIET) console.log('ℹ️ 加载器视角校验通过（frontmatter / name / description / body）');
+      void out;
+    } catch (error) {
+      const detail = String(error.stdout ?? error.message).split('\n').filter((l) => l.includes('❌'));
+      problems.push(`加载器视角校验失败：${detail.join(' / ') || String(error.message).split('\n')[0]}`);
+    }
+  }
+}
+
 // ── 输出 ───────────────────────────────────────────────────────────────
 if (!QUIET) console.log(`🔍 Steps2Great-skill 自检：${fileCount} 个文件\n`);
 if (problems.length) {

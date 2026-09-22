@@ -36,7 +36,39 @@ node scripts/check.mjs
 ```
 
 它会查：SKILL.md 的 frontmatter 是否合规、有没有坏链、编码是否 UTF-8 无 BOM 且 LF、
-代码围栏是否成对、镜像脚本还能不能跑。
+代码围栏是否成对、镜像脚本还能不能跑，以及**加载器视角**能不能读（见下节）。
+
+---
+
+## ⚠️ frontmatter 的一条硬约束（踩过一次）
+
+`description` 是**裸标量**时，里面**不能出现 `: `（半角冒号+空格）**。
+严格 YAML 解析器会把它当成嵌套映射，直接抛
+
+```
+Nested mappings are not allowed in compact mappings
+```
+
+结果是 **skill 完全加载不上**（不是警告，是加载失败），而纯文本看起来毫无异常。
+
+所以：值里要冒号就**整行加双引号**，或者改用全角「：」（全角冒号是安全的）。
+
+```yaml
+# ❌ 加载失败
+description: use when the user asks: teach me
+
+# ✅
+description: "use when the user asks: teach me"
+```
+
+`scripts/check.mjs` 与 `_build/verify-skill-load.mjs` 都会拦这个错 —— 后者是
+**用真实 YAML 解析器**复刻加载器路径（首行 `---` → frontmatter 解析成对象 →
+name 合规 → description 长度与双语触发词 → body 可切出）。
+
+```bash
+node _build/verify-skill-load.mjs              # 用真实 YAML 解析器
+node _build/verify-skill-load.mjs --no-yaml    # 没有 YAML 库时走内置退化解析（同样是硬的）
+```
 
 ---
 

@@ -191,11 +191,17 @@ On takeover the AI compares versions and mentions an update **once**; nothing ha
 ## Development
 
 ```bash
-node scripts/check.mjs                                    # repo self-check
+node scripts/check.mjs                                    # repo self-check (frontmatter / links / encoding / mirror drift)
+node _build/verify-skill-load.mjs                         # loader view: real YAML parser validates SKILL.md
 node _build/sync-from-upstream.mjs                        # mirror from upstream (default E:/StepsToGreat)
 node _build/sync-from-upstream.mjs --from <path> --dry     # dry-run diff
 node scripts/validate-state.mjs --root <workspace>         # validate a workspace's state
 ```
+
+> **A bug we already hit (hence `verify-skill-load`)**: if the frontmatter `description` is a
+> bare scalar containing `: `, a strict YAML parser fails with `Nested mappings are not allowed`
+> and **the skill silently fails to load** — while the plain text looks perfectly fine.
+> Both checkers catch it; see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ---
 

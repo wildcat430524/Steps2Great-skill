@@ -16,7 +16,9 @@
     "init": "node scripts/init-workspace.mjs",
     "update": "node scripts/update.mjs --check",
     "check": "node scripts/check.mjs",
-    "verify": "node scripts/check.mjs && node scripts/init-workspace.mjs --root .tmp-workspace --dry"
+    "verify:load": "node _build/verify-skill-load.mjs",
+    "sync": "node _build/sync-from-upstream.mjs",
+    "verify": "node _build/verify-skill-load.mjs && node scripts/check.mjs"
   },
   "files": [
     "SKILL.md",

@@ -189,11 +189,16 @@ AI 接手时比一下版本，低了就**提示一次**「框架有更新，要�
 ## 开发
 
 ```bash
-node scripts/check.mjs                                    # 仓库自检
+node scripts/check.mjs                                    # 仓库自检（frontmatter / 坏链 / 编码 / 镜像漂移）
+node _build/verify-skill-load.mjs                         # 加载器视角：用真实 YAML 解析器验证 SKILL.md 能被装进去
 node _build/sync-from-upstream.mjs                        # 从上游镜像框架（默认 E:/StepsToGreat）
 node _build/sync-from-upstream.mjs --from <路径> --dry     # 只看差异
 node scripts/validate-state.mjs --root <工作区>            # 校验某个工作区的状态是否自洽
 ```
+
+> **踩过的坑（所以有 `verify-skill-load`）**：frontmatter 的 `description` 若是裸标量且含 `: `，
+> 严格 YAML 解析器会直接报 `Nested mappings are not allowed` —— **skill 加载不上**，
+> 而纯文本完全看不出来。检查器会拦这个错，详见 [CONTRIBUTING.md](./CONTRIBUTING.md)。
 
 ---
 
