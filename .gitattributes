@@ -1,0 +1,14 @@
+# 强制行尾为 LF（项目约定，跨平台一致；check.mjs 会拒绝 CRLF）
+* text=auto eol=lf
+
+# 二进制资源按二进制处理，避免行尾转换损坏
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.zip binary
+*.exe binary
+
+# 镜像文件：在 GitHub 上折叠 diff 噪音
+references/** linguist-generated=true

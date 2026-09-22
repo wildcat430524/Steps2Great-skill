@@ -1,0 +1,50 @@
+{
+  "name": "steps2great-skill",
+  "version": "1.0.0",
+  "private": false,
+  "description": "把任何支持 Agent Skills 的 AI 变成一对一导师：Socratic 引导 + 掌握学习法，三维评估全 ✅ 才推进下一课。 An Agent Skill that turns any AI into a one-on-one Socratic mastery tutor.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "steps2great-init": "scripts/init-workspace.mjs",
+    "steps2great-update": "scripts/update.mjs"
+  },
+  "scripts": {
+    "init": "node scripts/init-workspace.mjs",
+    "update": "node scripts/update.mjs --check",
+    "check": "node scripts/check.mjs",
+    "verify": "node scripts/check.mjs && node scripts/init-workspace.mjs --root .tmp-workspace --dry"
+  },
+  "files": [
+    "SKILL.md",
+    "references/",
+    "templates/",
+    "scripts/",
+    "README.md",
+    "README.en.md",
+    "LICENSE",
+    "LICENSE-DOCS"
+  ],
+  "keywords": [
+    "agent-skill",
+    "claude-skill",
+    "skill",
+    "ai-tutor",
+    "education",
+    "mastery-learning",
+    "socratic",
+    "prompt-engineering",
+    "markdown"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wildcat430524/Steps2Great-skill.git"
+  },
+  "homepage": "https://github.com/wildcat430524/Steps2Great-skill#readme",
+  "bugs": {
+    "url": "https://github.com/wildcat430524/Steps2Great-skill/issues"
+  }
+}
