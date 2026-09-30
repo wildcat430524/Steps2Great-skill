@@ -5,7 +5,7 @@
  * 查什么：`我的学习/00-学习档案.md` 的三处状态（🚦 交接 / 📊 掌握 / ⏳ 待办）
  * 是否**自洽**、**有证据**、**没提前推进**。
  *
- * 判定口径 = `协议/04_状态机.md` 第 4 节的 10 条不变式（I1–I10）。
+ * 判定口径 = `协议/04_状态机.md` 第 4 节的不变式（I1–I12）。
  * 工具只校验「自洽性与证据」，不校验「教学质量」（见状态机第 6 节边界）。
  *
  * 用法：
@@ -26,6 +26,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = process.cwd(); // skill 版：默认校验当前工作目录（学生工作区）
+const SUPPORTED_PROTOCOL_VERSION = 1;
 
 // ── 参数 ─────────────────────────────────────────────────────
 
@@ -49,7 +50,7 @@ if (argv.includes('--help') || argv.includes('-h')) {
   node scripts/validate-state.mjs --json                   机器可读输出
   node scripts/validate-state.mjs --quiet                  只输出问题
 
-判定口径见 协议/04_状态机.md 第 4 节（不变式 I1–I10）。`);
+判定口径见 协议/04_状态机.md 第 4 节（不变式 I1–I12）。`);
   process.exit(0);
 }
 
@@ -251,6 +252,14 @@ function validate(rootDir) {
 
   const text = readFileSync(profileAbs, 'utf8');
   const p = parseProfile(text);
+  // I12: newer profiles require a newer validator, even if still blank.
+  const pvRaw = tableValue(p.info, '协议版本') || tableValue(p.handoff, '协议版本');
+  const pv = Number(clean(pvRaw).replace(/^v/i, ''));
+  if (pvRaw && Number.isFinite(pv) && pv > SUPPORTED_PROTOCOL_VERSION) {
+    problems.push(`[I12] 档案协议版本 ${pv} 高于本工具支持的 ${SUPPORTED_PROTOCOL_VERSION} —— 请更新 skill 后再校验`);
+    return { status: 'FAILED', problems, warnings, infos };
+  }
+  if (pvRaw && Number.isFinite(pv) && pv < SUPPORTED_PROTOCOL_VERSION) warnings.push(`[I12] 旧协议版本 ${pv}，迁移步骤见 references/docs/UPGRADE.md`);
 
   // ── I1：五个区块齐全 ──────────────────────────────────────
   const required = [

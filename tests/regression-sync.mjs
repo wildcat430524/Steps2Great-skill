@@ -17,7 +17,7 @@
  * 退出码：0 = 全部符合预期 / 1 = 不符合预期
  */
 
-import { existsSync, readFileSync, copyFileSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, copyFileSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
@@ -65,7 +65,7 @@ const restore = () => {
 try {
   // ── S1 正常 sync：指纹完好、退出码 0 ──────────────────────────────
   {
-    const r = run('sync', [SYNC]);
+    const r = run('sync', [SYNC, '--from', UPSTREAM]);
     const marks = ['I11（全量）', 'stripPathNote', '自述尚未创建'];
     const text = readFileSync(VALIDATOR, 'utf8');
     const missing = marks.filter((m) => !text.includes(m));
@@ -79,7 +79,19 @@ try {
 
   // ── S2 强制刷新：必须报错 + 退出码 1 ──────────────────────────────
   {
-    const r = run('sync-refresh', [SYNC, '--refresh-owned']);
+    const target = join(ROOT, 'scripts', 'materials.mjs');
+    const original = readFileSync(target, 'utf8');
+    try {
+      writeFileSync(target, original + '\n// deliberately stale\n', 'utf8');
+      const r = run('check-stale', [SYNC, '--from', UPSTREAM, '--check']);
+      add('S5', '内容过期必报错，check 不写文件', r.code === 1 && /scripts\/materials.mjs/.test(r.out) && readFileSync(target, 'utf8') === original + '\n// deliberately stale\n');
+    } finally { writeFileSync(target, original, 'utf8'); }
+    const r = run('check-clean', [SYNC, '--from', UPSTREAM, '--check']);
+    add('S6', '恢复后镜像内容一致', r.code === 0, r.out);
+  }
+
+  {
+    const r = run('sync-refresh', [SYNC, '--from', UPSTREAM, '--refresh-owned']);
     const flagged = /修复指纹丢失/.test(r.out);
     add('S2', '被上游覆盖时 sync 必须报错并退出码 1', r.code === 1 && flagged, `退出码=${r.code}，报错=${flagged}`);
   }

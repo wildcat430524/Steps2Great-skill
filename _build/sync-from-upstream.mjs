@@ -10,6 +10,7 @@
  *   node _build/sync-from-upstream.mjs                      # 用默认源 E:/StepsToGreat
  *   node _build/sync-from-upstream.mjs --from <目录>        # 指定 StepsToGreat 检出位置
  *   node _build/sync-from-upstream.mjs --dry                # 只报告，不落盘
+ *   node _build/sync-from-upstream.mjs --check              # 只读逐文件比对，差异即失败
  *   node _build/sync-from-upstream.mjs --prune              # 删掉 references/ 里已不在映射内的文件
  *
  * 铁律：只读上游，绝不写上游。
@@ -28,7 +29,8 @@ const argOf = (name, fallback) => {
 const FROM = resolve(argOf('--from', 'E:/StepsToGreat'));
 /** 本仓库根 = 本脚本所在目录（_build/）的上一级 */
 const TO = resolve(fileURLToPath(new URL('..', import.meta.url)));
-const DRY = args.includes('--dry');
+const CHECK = args.includes('--check');
+const DRY = args.includes('--dry') || CHECK;
 const PRUNE = args.includes('--prune');
 const REFRESH_OWNED = args.includes('--refresh-owned');
 
@@ -48,6 +50,8 @@ const MAP = [
   ['教程/', 'references/教程/'],
 
   ['_tools/validate-state.mjs', 'scripts/validate-state.mjs'],
+  ['tools/materials.mjs', 'scripts/materials.mjs'],
+  ['tests/materials.test.mjs', 'tests/materials.test.mjs'],
   ['docs/', 'references/docs/'],
 
   // 注意：学生工作区的脚手架（我的学习/*、资料/*）**不由本脚本镜像** ——
@@ -60,6 +64,8 @@ const MAP = [
  * 用于把上游「仓库口径」的小细节改成「skill 口径」，避免正文里留下指向不存在的路径。
  */
 const TRANSFORM = [
+  ['tests/materials.test.mjs', [[/\.\.\/tools\/materials\.mjs/g, '../scripts/materials.mjs']]],
+  ['docs/material-retrieval.md', [[/node tools\/materials\.mjs/g, 'node "$SKILL/scripts/materials.mjs"']]],
   [
     '_tools/validate-state.mjs',
     [
@@ -234,6 +240,7 @@ const SKILL_OWNED = new Set([
 /** SKILL_OWNED 文件必须具备的指纹（防「被覆盖」后没人发现） */
 const SKILL_OWNED_MARKS = {
   'scripts/validate-state.mjs': [
+    'const SUPPORTED_PROTOCOL_VERSION = 1;',
     'I11（全量）',                   // T1：I11 提成独立段落，未标已掌握的课也查
     'stripPathNote',                 // T6：剥括号说明分层，保留「待建」信息
     '自述尚未创建',                   // T6：识别「待建/待发布」→ 降级为提示
@@ -337,6 +344,8 @@ function rewriteLinks(body, srcFileRel, dstFileRel) {
 
   const out = body.replace(LINK_RE, (whole, text, target) => {
     if (/^(https?:|mailto:|#)/.test(target)) return whole;
+    // Workspace example links have no corresponding file in the skill tree.
+    if (/^(?:\.\/)?(学科|我的学习|资料)\//.test(target)) return '`' + text.replace(/^`|`$/g, '') + '`';
     const m = /^([^#]*)(#.*)?$/.exec(target);
     const targetPath = m[1];
     const hash = m[2] ?? '';
@@ -379,6 +388,7 @@ const DROP_LINE = [/^\s*>?\s*英文版：/, /^\s*English version:/i, /^\s*>?\s*�
 
 const files = collect().filter((f) => mapPath(f) !== null);
 const written = [];
+const stale = [];
 const downgradedAll = new Map();
 const templateStats = [];
 
@@ -431,6 +441,10 @@ for (const srcFileRel of [...files].sort()) {
 
   const content = srcFileRel.endsWith('.md') ? BANNER + '\n' + body : body;
   written.push(dstFileRel);
+  if (CHECK) {
+    const target = join(TO, dstFileRel);
+    if (!existsSync(target) || readFileSync(target, 'utf8') !== content) stale.push(dstFileRel);
+  }
   if (!DRY) {
     mkdirSync(dirname(join(TO, dstFileRel)), { recursive: true });
     writeFileSync(join(TO, dstFileRel), content, 'utf8');
@@ -488,6 +502,10 @@ if (Object.keys(SKILL_OWNED_MARKS).length && ownedOk) {
 // 指纹丢失 = skill 侧修复被上游覆盖，必须让调用方（CI / 人）看到非零退出码，
 // 否则「静默覆盖」还会再发生一次。
 if (!ownedOk) process.exitCode = 1;
+if (CHECK && stale.length) {
+  console.error(`❌ 镜像内容过期或缺失（${stale.length} 个）：\n${stale.join('\n')}`);
+  process.exitCode = 1;
+} else if (CHECK) console.log('✅ 镜像内容与上游一致');
 
 console.log(`\n刻意跳过 ${skipped.length} 个文件：`);
 for (const [re, why] of SKIP_REASON) {

@@ -282,6 +282,12 @@ function setup(testCase) {
 }
 
 const results = [];
+CASES.push({
+  id: 'T8', name: '高于支持的协议版本必须拒绝',
+  why: '镜像新协议不能让旧工具静默放行', answer: ANSWER_CLEAN,
+  profile: profile({ status: '✅ 已掌握', note: LESSON_REL }).replace('## 🚦', '| **协议版本** | 2 |\n\n## 🚦'),
+  expect: /FAILED/, expectMention: /\[I12\]/,
+});
 for (const c of CASES) {
   setup(c);
   let out = '';

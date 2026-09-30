@@ -25,6 +25,9 @@ jobs:
       - name: State validator regression tests
         run: node tests/regression-state.mjs
 
+      - name: Material retrieval regression tests
+        run: node --test tests/materials.test.mjs
+
       # 镜像脚本回归测试：钉住「sync 覆盖 skill 侧修复」这个坑。
       # CI 上没有上游检出时该测试自动跳过（打印 SKIP 后退出 0）。
       - name: Mirror script regression tests

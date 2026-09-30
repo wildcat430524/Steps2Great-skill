@@ -8,7 +8,7 @@
 > **Turn any AI that supports Agent Skills into your one-on-one tutor.**
 > Placement test → roadmap → 1–3 questions per round → advance only when all three dimensions are ✅ → errors explained properly before moving on.
 
-**It is not an app, not a course, not a website.** It is a **197-line `SKILL.md`** (~6.5 KB):
+**It is not an app, not a course, not a website.** It is a **compact `SKILL.md`**:
 install it, and the AI stops being a Q&A machine and starts **tutoring you under a protocol**.
 
 **It teaches no particular subject** — it defines **how to teach**. Programming, English, exams, maths, humanities — the same rules.
@@ -17,6 +17,8 @@ It grew out of [StepsToGreat](https://github.com/wildcat430524/StepsToGreat), wh
 This repo packages that same protocol into an **installable, distributable, verifiable** Agent Skill.
 
 English | [简体中文](./README.md)
+
+**v1.1: retrieve before teaching**. A compact entry routes to the relevant protocol; subject switching keeps one active round. The optional read-only CLI retrieves complete sections with line numbers and source fingerprints. See the [retrieval guide](./references/docs/material-retrieval.md).
 
 **Contents**
 
@@ -47,7 +49,7 @@ English | [简体中文](./README.md)
 |---|---|---|
 | **1** | Install it in one line: `npx skills add wildcat430524/Steps2Great-skill` | It lands in your client's skills directory (Claude Code: `~/.claude/skills/steps2great-skill/`) |
 | **2** | Say: `I want to learn Python so I can process Excel files myself. 30 minutes a day.` | It asks about your goals, runs a placement test, lays out a roadmap, **sends lesson 1** |
-| **3** | Ask it: `How many hard rules are in the SKILL.md you loaded?` | **11** = the skill is installed *and* actually read |
+| **3** | Ask it: `How many hard rules are in the SKILL.md you loaded?` | **12** = the skill is installed *and* actually read |
 
 > **Prefer not to use `npx`?** A plain `git clone` into a skills directory works just as well — see [Install](#install-pick-one).
 
@@ -70,7 +72,7 @@ But it has three hard limits — **all of them caused by the "folder" form, not 
 | Rules must **travel with the repo** — a new project means dropping the folder in again | Install once into the skills directory; **every project and every session can trigger it** |
 | Triggering depends on **whether the tool reads `AGENTS.md`** — 25 pointer files covering 28+ tools, each maintained by hand | Triggering rides the **frontmatter `description`** (bilingual trigger words), which every Agent Skills client reads |
 | Content **drifts when hand-copied** — change a rule, forget a copy | `references/` is a **mirrored build artifact**; change upstream, run the sync script, CI verifies consistency |
-| Nobody checks **whether the protocol was followed** | A state validator (11 invariants) + 11 regression cases + CI on every push |
+| Nobody checks **whether the protocol was followed** | A state validator (12 invariants) + state and sync regression cases + CI on every push |
 
 ### How the two divide the work
 
@@ -90,10 +92,10 @@ But it has three hard limits — **all of them caused by the "folder" form, not 
 | | Paste a prompt | Steps2Great-skill |
 |---|---|---|
 | **Auto-triggered** | ❌ You must remember to paste it | ✅ Say "I want to learn X" and it loads |
-| Rule length | Whatever you'll paste (usually a few hundred words) | **Read on demand** — a 197-line contract + 64 references, fetched as needed |
+| Rule length | Whatever you'll paste (usually a few hundred words) | **Read on demand** — a compact contract + the relevant references, fetched as needed |
 | Drift | Versions everywhere | Single source of truth + mirror script + CI |
 | State | In the conversation, gone when it closes | In your workspace files — **survives switching clients** |
-| Verifiable | ❌ | ✅ 11 invariants + 11 regression cases |
+| Verifiable | ❌ | ✅ 12 invariants + state and sync regression cases |
 
 ---
 
@@ -287,7 +289,7 @@ flowchart TD
 **In one line**: all three dimensions (① conceptual understanding / ② logical correctness / ③ formal correctness) must be **✅** before anything counts as mastered — and nothing advances until then.
 Partial mastery (any ⚠️) and non-mastery (any ❌) both fail.
 
-The load-bearing ones (all 11 are in [`SKILL.md`](./SKILL.md)):
+The load-bearing ones (all 12 are in [`SKILL.md`](./SKILL.md)):
 
 | Rule | What it says |
 |---|---|
@@ -592,7 +594,7 @@ Want to do that review question now? (1 question, covering variables / data type
 | Filing the state (answer doc + 3 profile places) | After each lesson passes |
 | **Survives a client switch / a week away** | Day 10 |
 
-> Want to check these really are in the protocol? See [`SKILL.md`](./SKILL.md) (11 hard rules, question pacing, direct-fix protocol)
+> Want to check these really are in the protocol? See [`SKILL.md`](./SKILL.md) (12 hard rules, question pacing, direct-fix protocol)
 > and [`references/协议/00_导师协议.md`](./references/协议/00_导师协议.md) (assessment rules / remediation loop / Feynman method).
 > **The dialogue is the protocol's output, not decoration.**
 
@@ -610,7 +612,7 @@ Four kinds of evidence, all in the repo:
 | **1** | **8 subject simulations** — an AI plays tutor through full teaching dialogues (real errors, repeated probing, frustration), then defects are extracted from the transcripts | All 8 subjects **needed patching**; **6 shared one core symptom** (② vs ③ unassignable) → hence the verdict mnemonic | [`references/docs/simulations/`](./references/docs/simulations/) |
 | **2** | **Weak models as probes** — deliberately run at the lowest reasoning effort (`low`/`off`), because strong models **guess** their way past unclear protocol and hide the defect | Protocol itself **12/12 × 4 models**; the packaging layer had **5 real defects** (3 validator + template dead links + mirror overwriting hand fixes) | [`tests/weak-model-report.md`](./tests/weak-model-report.md) |
 | **3** | **End-to-end run** — an AI walks the whole thing: first use → placement → roadmap → lesson 1 → three rounds → lesson closed → state filed | 1 protocol gap + **1 template dead-link defect that would hit every user** + 2 validator false positives | [`references/docs/E2E-RUN-REPORT.md`](./references/docs/E2E-RUN-REPORT.md) |
-| **4** | **State validator** — 11 invariants checking whether your profile is self-consistent | Catches "marked mastered with no re-assessment evidence", "advancing before the previous lesson passed", "two re-assessment sections in one file" | [`references/协议/04_状态机.md`](./references/协议/04_状态机.md) |
+| **4** | **State validator** — 12 invariants checking whether your profile is self-consistent | Catches "marked mastered with no re-assessment evidence", "advancing before the previous lesson passed", "two re-assessment sections in one file" | [`references/协议/04_状态机.md`](./references/协议/04_状态机.md) |
 
 ### Three numbers behind "adding rules ≠ adding value"
 
@@ -618,7 +620,7 @@ Four kinds of evidence, all in the repo:
 |---|---|
 | **All 8 subjects needed patching** | The three-dimension **mechanism** is complete, but the **criteria** are described per dimension rather than per error |
 | **133 suggestions → only 5 adopted** | The reports' value is **evidence**; rules take only what causes "criteria fighting". **7 suggestions were explicitly rejected**, with reasons written down |
-| **11 invariants + 11 regression cases** | "A real failure first, then a rule" — every invariant traces back to the test that exposed it |
+| **12 invariants + state and sync regression cases** | "A real failure first, then a rule" — every invariant traces back to the test that exposed it |
 
 ### The one that matters most: a validator must not punish honesty
 
@@ -670,7 +672,7 @@ or a single-language body never triggers for half the audience.
 
 ```
 Steps2Great-skill/
-├── SKILL.md                    ← the contract and main loop (197 lines; what the AI actually reads)
+├── SKILL.md                    ← the contract and main loop (compact entry; what the AI actually reads)
 ├── references/                 ← read on demand (64 mirrored files)
 │   ├── 协议/                   ← the single source of truth for teaching rules (incl. state machine)
 │   ├── 学科包/                 ← programming / language / humanities / sciences / exams — each defines its own dimension ③
@@ -686,7 +688,7 @@ Steps2Great-skill/
 ├── scripts/
 │   ├── init-workspace.mjs      ← build the workspace skeleton (never overwrites)
 │   ├── update.mjs              ← adaptive update (never touches your learning records)
-│   ├── validate-state.mjs      ← state validator (11 invariants)
+│   ├── validate-state.mjs      ← state validator (12 invariants)
 │   └── check.mjs               ← repo self-check (frontmatter / links / encoding / mirror drift)
 ├── tests/
 │   ├── regression-state.mjs    ← validator regressions (7 cases)
@@ -758,7 +760,7 @@ node _build/sync-from-upstream.mjs                        # mirror from upstream
 node _build/sync-from-upstream.mjs --from <path> --dry     # dry-run diff
 node scripts/validate-state.mjs --root <workspace>         # validate a workspace's state
 node _build/score-workspace.mjs --root <workspace>         # score a tested workspace on six dimensions
-npm test                                                  # 11 regression cases
+npm test                                                  # state and sync regression cases
 ```
 
 > **Why four separate checks**: each one catches a pit we actually fell into —
@@ -772,7 +774,7 @@ npm test                                                  # 11 regression cases
 ## FAQ
 
 **How do I know the skill actually loaded?**
-Ask it to recite the hard-rule count from `SKILL.md` — the correct answer is **11**. No answer = never loaded.
+Ask it to recite the hard-rule count from `SKILL.md` — the correct answer is **12**. No answer = never loaded.
 
 **My client doesn't load skills. What now?**
 First check whether it supports Agent Skills at all (some only read their own rules files).
@@ -815,7 +817,7 @@ Yes, but by the rules: **only one "current subject" at a time**, and finish the 
 Full flow in [`references/协议/03_落档事件表.md`](./references/协议/03_落档事件表.md).
 
 **How do I know the protocol was followed?**
-Run the state validator, which checks your profile against the 11 invariants in
+Run the state validator, which checks your profile against the 12 invariants in
 [`references/协议/04_状态机.md`](./references/协议/04_状态机.md):
 
 ```bash
@@ -844,11 +846,11 @@ Write them into the workspace `我的学习/我的规则.md` — it is the **ove
 
 | To understand | Read this |
 |---|---|
-| **What the AI actually reads** (the 197-line contract and main loop) | [`SKILL.md`](./SKILL.md) |
+| **What the AI actually reads** (the compact contract and main loop) | [`SKILL.md`](./SKILL.md) |
 | The single source of truth for teaching rules | [`references/协议/`](./references/协议/) |
 | Which error belongs to which dimension (mnemonic + per-subject boundary cases) | [`references/协议/00_导师协议.md`](./references/协议/00_导师协议.md) §3 |
 | **When to write which file** | [`references/协议/03_落档事件表.md`](./references/协议/03_落档事件表.md) |
-| The state machine and its 11 invariants | [`references/协议/04_状态机.md`](./references/协议/04_状态机.md) |
+| The state machine and its 12 invariants | [`references/协议/04_状态机.md`](./references/协议/04_状态机.md) |
 | How each subject defines its three dimensions | [`references/学科包/README.md`](./references/学科包/README.md) |
 | A 5-minute end-to-end demo | [`references/示例/演示学科/README.md`](./references/示例/演示学科/README.md) |
 | **Why these rules were measured, not guessed** | [`references/docs/simulations/`](./references/docs/simulations/) |

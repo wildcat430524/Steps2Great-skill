@@ -186,11 +186,11 @@ for (const abs of files) {
   const upstream = process.env.STEPS2GREAT_UPSTREAM || 'E:/StepsToGreat';
   if (existsSync(syncScript) && existsSync(upstream)) {
     try {
-      const out = execFileSync(process.execPath, [syncScript, '--dry'], { encoding: 'utf8', cwd: ROOT });
+      const out = execFileSync(process.execPath, [syncScript, '--from', upstream, '--check'], { encoding: 'utf8', cwd: ROOT });
       const n = /镜像 (\d+) 个文件/.exec(out);
-      if (!QUIET) console.log(`ℹ️ 镜像脚本可跑（--dry，${n ? n[1] : '?'} 个文件待写）—— 与上游 ${upstream} 对得上`);
+      if (!QUIET) console.log(`ℹ️ 镜像内容一致（${n ? n[1] : '?'} 个文件）—— ${upstream}`);
     } catch (error) {
-      warnings.push(`镜像脚本 --dry 失败：${String(error.message).split('\n')[0]}`);
+      problems.push(`镜像内容校验失败：${String(error.stderr ?? error.message).trim()}`);
     }
   }
 }
