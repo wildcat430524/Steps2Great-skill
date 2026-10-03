@@ -13,7 +13,8 @@
  *
  * 铁律：
  *   - **永不覆盖** `我的学习/00-学习档案.md` 与 `我的学习/我的规则.md`（学生资产）。
- *   - 脚手架的 README、`.steps2great.json` 的版本号会更新。
+ *   - 轻量目录仅补齐缺失脚手架；独立项目仅更新指纹未变的框架文件。
+ *   - `.steps2great.json` 的版本号与文件指纹会更新。
  *   - 学生在覆盖层里写过的规则，更新后依然生效（覆盖层优先级最高）。
  */
 
@@ -21,6 +22,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync } from
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { syncProject } from './project-workspace.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SKILL = resolve(join(HERE, '..'));
@@ -44,14 +46,14 @@ const readJson = (p) => {
 };
 const skillVersion = () => readJson(join(SKILL, 'package.json'))?.version ?? '0.0.0';
 
-/** 只更新这些「脚手架」文件；档案与规则永远不动 */
+/** 只补齐缺失的脚手架；已有内容可能含学生笔记，永远保留 */
 const SCAFFOLD = [
   { to: '我的学习/README.md', from: 'templates/workspace/我的学习-README.md' },
   { to: '资料/README.md', from: 'templates/workspace/资料-README.md' },
 ];
 
 /** 学生资产：更新时必须原样保留 —— 列出来是为了让脚本显式承诺 */
-const PRESERVED = ['我的学习/00-学习档案.md', '我的学习/我的规则.md', '我的学习/我的规则.en.md', '我的学习/学科/'];
+const PRESERVED = ['我的学习/00-学习档案.md', '我的学习/我的规则.md', '我的学习/我的规则.en.md', '我的学习/学科/', '我的学习/README.md', '资料/'];
 
 const ANCHOR = '.steps2great.json';
 
@@ -72,12 +74,15 @@ if (anchor === null) {
 }
 
 let changed = 0;
-for (const f of SCAFFOLD) {
+if (anchor?.workspaceMode === 'standalone') {
+  const result = syncProject(SKILL, ROOT, { update: true, dry: CHECK, anchor });
+  if (!CHECK) anchor.projectFiles = result.projectFiles;
+}
+for (const f of anchor?.workspaceMode === 'standalone' ? [] : SCAFFOLD) {
   const src = join(SKILL, f.from);
   const dst = join(ROOT, f.to);
   if (!existsSync(src)) continue;
-  const same = existsSync(dst) && readFileSync(dst, 'utf8') === readFileSync(src, 'utf8');
-  if (same) continue;
+  if (existsSync(dst)) continue;
   changed++;
   console.log(`  ${CHECK ? '将更新' : '更新'} ${f.to}`);
   if (!CHECK) {

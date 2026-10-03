@@ -55,7 +55,9 @@ This is a **fictional illustration** (not a real assessment record) showing the 
 
 **Python lists · module mastery**
 
-`▰▰▱▱▱▱▱▱▱▱` **1/4** knowledge units mastered
+**1/4** knowledge units mastered
+
+![Module mastery 1/4](./docs/assets/module-progress-compact-1-of-4.svg)
 
 **Small goal｜Append an item to an existing list**
 
@@ -63,7 +65,7 @@ This is a **fictional illustration** (not a real assessment record) showing the 
 - [x] Tell **appending** apart from **overwriting**, knowing existing elements stay
 - [x] Independently call **`append`** to add an item and verify the list changed
 
-> **Complete** | You can now append an item to an existing list without rewriting it. You may stop here.
+> **Small goal complete** | You can now append an item to an existing list without rewriting it. You may stop here.
 
 *Evidence: module - meet-lists final re-assessment; skills - current formal assessments. The adding unit is not yet fully mastered, so module progress remains 1/4.*
 
@@ -114,6 +116,28 @@ git clone https://github.com/wildcat430524/Steps2Great-skill.git "$env:USERPROFI
 > **Which directory each client reads, and how it triggers, varies** (some offer slash commands, others only route via `description`) —
 > **this project does not promise any universal invocation syntax**; follow **your client's official documentation**.
 > **Node is optional**: the scripts are only a bonus for init / self-check / updates; without them you can still say "set me up".
+
+---
+
+## Generate a standalone project (optional)
+
+The default lightweight workspace keeps the framework inside the skill, so the student folder holds only `我的学习/` and `资料/`.
+If you'd rather have the teaching framework **travel with the learning folder**, generate a **standalone project sourced from StepsToGreat**:
+
+```bash
+node scripts/init-workspace.mjs --root <learning-folder> --standalone
+```
+
+This includes the local `AGENTS.md`, bilingual protocols, subject packs, templates, guides, client entry files, material-retrieval tools, the state validator and the regression fixtures.
+Project files come straight from upstream, so the **original directory structure and relative links are preserved**; afterwards the folder can move, or be opened by a different AI tool, by reading its own local entry point — with **no dependency on the original skill installation**.
+The profile starts from an empty template and **no one's learner history is copied**; videos, promotional assets, and this repo's skill-development tooling are excluded.
+
+- **Omitting `--standalone`** still produces the original lightweight workspace (framework stays in the skill).
+- **An existing lightweight workspace** can be expanded with the same flag; **existing files are never overwritten**.
+- A standalone project's `update.mjs --root <folder>` replaces **only framework files that are fingerprinted and unmodified by hand**; profiles, rules, lesson answers, and materials are preserved. Adding `--check` previews changes without writing.
+
+> The teaching core is the same as StepsToGreat: placement, routing, conversational introduction, round-by-round practice,
+> three-dimension re-assessment, filing, multi-subject switching, the module bar and the small-goal list all carry over.
 
 ---
 

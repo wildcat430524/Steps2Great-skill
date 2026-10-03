@@ -19,6 +19,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync, rmSync } from 'node:fs';
 import { dirname, join, resolve, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { exportProject } from './export-project.mjs';
 
 const args = process.argv.slice(2);
 const argOf = (name, fallback) => {
@@ -32,7 +33,6 @@ const TO = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const CHECK = args.includes('--check');
 const DRY = args.includes('--dry') || CHECK;
 const PRUNE = args.includes('--prune');
-const REFRESH_OWNED = args.includes('--refresh-owned');
 
 /**
  * 映射表：源相对路径（相对 StepsToGreat）→ 目标相对路径（相对本仓库）。
@@ -50,6 +50,9 @@ const MAP = [
   ['教程/', 'references/教程/'],
 
   ['_tools/validate-state.mjs', 'scripts/validate-state.mjs'],
+  ['tests/state-regression.mjs', 'tests/regression-state.mjs'],
+  ['_tools/render-progress.mjs', 'scripts/render-progress.mjs'],
+  ['tests/progress-view.test.mjs', 'tests/progress-view.test.mjs'],
   ['tools/materials.mjs', 'scripts/materials.mjs'],
   ['tests/materials.test.mjs', 'tests/materials.test.mjs'],
   ['tools/behavior-eval.mjs', 'scripts/behavior-eval.mjs'],
@@ -67,6 +70,10 @@ const MAP = [
  * 用于把上游「仓库口径」的小细节改成「skill 口径」，避免正文里留下指向不存在的路径。
  */
 const TRANSFORM = [
+  ['tests/state-regression.mjs', [[/join\(ROOT, '_tools', 'validate-state\.mjs'\)/g, "join(ROOT, 'scripts', 'validate-state.mjs')"]]],
+  ['tests/progress-view.test.mjs', [[/\.\.\/_tools\/render-progress\.mjs/g, '../scripts/render-progress.mjs']]],
+  ['协议/06_小目标进度.md', [[/_tools\/render-progress\.mjs/g, 'scripts/render-progress.mjs']]],
+  ['协议/06_小目标进度.en.md', [[/_tools\/render-progress\.mjs/g, 'scripts/render-progress.mjs']]],
   ['tools/behavior-eval.mjs', [[/\.\.\/AGENTS\.md/g, '../SKILL.md']]],
   ['tests/behavior-eval.test.mjs', [[/\.\.\/tools\/behavior-eval\.mjs/g, '../scripts/behavior-eval.mjs']]],
   ['docs/behavior-evaluation.md', [[/node tools\/behavior-eval\.mjs/g, 'node scripts/behavior-eval.mjs']]],
@@ -97,6 +104,8 @@ const TRANSFORM = [
  * 知道了目标位置，就能把链接改写成**从目标位置出发的正确相对路径**。
  */
 const TEMPLATE_DEST = {
+  '我的规则.md': '我的学习',
+  '我的规则.en.md': '我的学习',
   '学习档案模板.md': '我的学习',
   '课程路线模板.md': '我的学习/学科/<学科>',
   '摸底测试模板.md': '我的学习/学科/<学科>',
@@ -228,32 +237,6 @@ const TEMPLATE_TARGET_NAME = {
   '学生回答模板.md': '01_学生回答.md',
 };
 
-/**
- * ⚠️ 这些文件**不从上游镜像** —— 它们在 skill 侧被改过，且上游没有对应修复。
- *
- * 真实踩坑：修好 `validate-state.mjs` 的三个缺陷后，跑了一次 sync 做模板改写，
- * 三个修复全被上游版本**静默覆盖**，回归测试立刻 3/7 变红。
- * 教训：**「镜像目标」与「手改文件」不能是同一个文件**。
- *
- * 所以这里显式把被改过的文件从镜像里摘出来，并让 sync 在发现它们"可能被覆盖"时报警。
- * 想重新引入上游版本，用 `--refresh-validator`，然后**必须**重跑
- * `tests/regression-state.mjs` 确认三个修复还在（或在 TRANSFORM 里把它们补回来）。
- */
-const SKILL_OWNED = new Set([
-  'scripts/validate-state.mjs', // = _tools/validate-state.mjs，skill 侧含 3 个缺陷修复
-]);
-
-/** SKILL_OWNED 文件必须具备的指纹（防「被覆盖」后没人发现） */
-const SKILL_OWNED_MARKS = {
-  'scripts/validate-state.mjs': [
-    'const SUPPORTED_PROTOCOL_VERSION = 1;',
-    'I11（全量）',                   // T1：I11 提成独立段落，未标已掌握的课也查
-    'stripPathNote',                 // T6：剥括号说明分层，保留「待建」信息
-    '自述尚未创建',                   // T6：识别「待建/待发布」→ 降级为提示
-    'candidate[1] ?? candidate[2]',  // T3：优先抠出以 .md 结尾的路径
-  ],
-};
-
 /** 精确文件映射（含上面的脚手架）：先于 SKIP 判定，SKIP 只拦目录通配。 */
 const EXACT = new Map(MAP.filter(([from]) => !from.endsWith('/')));
 
@@ -317,6 +300,7 @@ function mapPath(srcRel) {
 function walk(dirAbs, rel = '') {
   const out = [];
   for (const name of readdirSync(dirAbs)) {
+    if (name === 'node_modules' || name === '.git') continue;
     const abs = join(dirAbs, name);
     const r = rel ? rel + '/' + name : name;
     if (statSync(abs).isDirectory()) out.push(...walk(abs, r));
@@ -398,7 +382,6 @@ const stale = [];
 const downgradedAll = new Map();
 const templateStats = [];
 
-const skippedOwned = [];
 for (const srcFileRel of [...files].sort()) {
   const dstFileRel = mapPath(srcFileRel);
   const abs = join(FROM, srcFileRel);
@@ -406,12 +389,6 @@ for (const srcFileRel of [...files].sort()) {
 
   if (dstFileRel === 'SKILL.md') {
     console.log(`  跳过 ${srcFileRel}（SKILL.md 手写，见文件头的映射说明）`);
-    continue;
-  }
-
-  // skill 侧改过的文件：镜像会覆盖掉修复 → 跳过，并在最后断言修复还在
-  if (SKILL_OWNED.has(dstFileRel) && !REFRESH_OWNED) {
-    skippedOwned.push(dstFileRel);
     continue;
   }
 
@@ -474,40 +451,10 @@ const skipped = walk(FROM).filter((f) => SKIP.some((re) => re.test(f.split(sep).
 console.log(`\n镜像 ${written.length} 个文件${DRY ? '（--dry，未落盘）' : ''}`);
 for (const f of written) console.log('  ✓ ' + f);
 
-// ── skill 侧独占文件：跳过镜像 + 断言修复还在 ──────────────────────────
-let ownedOk = true;
-if (skippedOwned.length) {
-  console.log('\n🔒 skill 侧独占（不从上游镜像，含上游没有的修复）：');
-  for (const f of skippedOwned) {
-    console.log(`  · ${f}`);
-  }
-  console.log('  想改回上游版本：加 `--refresh-owned`，然后**必须**重跑 tests/regression-state.mjs。');
+if (!DRY || CHECK) {
+  try { exportProject(FROM, join(TO, 'assets/project'), CHECK); }
+  catch (error) { console.error(error.message); process.exitCode = 1; }
 }
-for (const [file, marks] of Object.entries(SKILL_OWNED_MARKS)) {
-  const p = join(TO, file);
-  if (!existsSync(p)) {
-    console.error(`\n❌ skill 独占文件缺失：${file}（上游有对应文件，但 skill 版本带修复）`);
-    ownedOk = false;
-    continue;
-  }
-  const text = readFileSync(p, 'utf8');
-  const missing = marks.filter((m) => !text.includes(m));
-  if (missing.length) {
-    console.error(
-      `\n❌ ${file} 的修复指纹丢失：${missing.join('、')}\n` +
-        `   说明这个文件被上游版本覆盖过（或改动过大）。\n` +
-        `   恢复：git checkout -- ${file}，然后重跑 node tests/regression-state.mjs`,
-    );
-    ownedOk = false;
-  }
-}
-if (Object.keys(SKILL_OWNED_MARKS).length && ownedOk) {
-  console.log(`✅ ${Object.keys(SKILL_OWNED_MARKS).length} 个 skill 独占文件的修复指纹完好`);
-}
-
-// 指纹丢失 = skill 侧修复被上游覆盖，必须让调用方（CI / 人）看到非零退出码，
-// 否则「静默覆盖」还会再发生一次。
-if (!ownedOk) process.exitCode = 1;
 if (CHECK && stale.length) {
   console.error(`❌ 镜像内容过期或缺失（${stale.length} 个）：\n${stale.join('\n')}`);
   process.exitCode = 1;

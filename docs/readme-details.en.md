@@ -254,7 +254,7 @@ They are **calculated separately and never converted into each other** (full cri
 
 | Layer | What it shows | Derived from |
 |---|---|---|
-| **Module mastery bar** | **formally mastered knowledge units / units defined by the course route** (ten cells filled as `floor(10*K/T)`) | The course route + the 📊 mastery table + the lesson's final re-assessment, checked independently |
+| **Module mastery bar** | **formally mastered knowledge units / units defined by the course route** (a 200px graphic filled to `200*K/T`, with readable counts outside the image) | The course route + the 📊 mastery table + the lesson's final re-assessment, checked independently |
 | **Current skill list** | Usually **2–4 concrete skills; a tiny goal may have just one** | This block's formal assessment evidence, ticked one by one |
 
 - The list can be **fully ticked while the module bar does not move at all** — finishing a small goal is not the same as mastering the lesson or the module.
@@ -750,7 +750,7 @@ Steps2Great-skill/
 ├── scripts/
 │   ├── init-workspace.mjs      ← build the workspace skeleton (never overwrites)
 │   ├── update.mjs              ← adaptive update (never touches your learning records)
-│   ├── validate-state.mjs      ← state validator (12 invariants; skill-owned, never overwritten by a mirror)
+│   ├── validate-state.mjs      ← state validator (12 invariants; mirrored upstream with path adaptation)
 │   ├── materials.mjs           ← material retrieval (read-only: list / search / full section)
 │   ├── behavior-eval.mjs       ← tutor-behaviour evaluation harness
 │   └── check.mjs               ← repo self-check (frontmatter / links / encoding / mirror drift)
@@ -777,9 +777,7 @@ Change upstream → run the sync script → `references/` follows, with the mapp
 > **Two mechanisms you need to know (both born from bugs)**:
 > ① **Links must be recomputed for where the file lands**: `references/模板/` is scaffolding for the *student workspace*,
 > and there is no `协议/` directory there — so framework links inside templates must be **rewritten into prose**, or every copy becomes a dead link.
-> ② **Hand-fixed files must not be wiped by a mirror**: `scripts/validate-state.mjs` is a mirror target, but this repo fixed
-> defects upstream never had. It is now marked **skill-owned**: sync skips it by default and **asserts the fix fingerprints
-> survive** at the end of every run — if they're gone, sync exits 1.
+> ② **Validator fixes live upstream**: duplicate verdict detection, annotated evidence paths, and pending-file handling are merged into StepsToGreat. The skill adapts only paths. Both state regression suites test the synchronized implementation; content checks detect drift, and sync tests run in isolated temporary folders.
 
 ---
 
@@ -793,7 +791,7 @@ Two layers, don't conflate them:
 # report only, write nothing
 node scripts/update.mjs --root <your-workspace> --check
 
-# actual update (scaffolding + version anchor only; never your learning records)
+# actual update (fill missing lightweight files or update unchanged standalone framework files; preserve learner data)
 node scripts/update.mjs --root <your-workspace>
 
 # update the skill itself

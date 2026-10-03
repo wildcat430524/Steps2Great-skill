@@ -11,13 +11,15 @@
  *   .steps2great.json          ← 记下初始化时的框架版本（供自适应更新比对）
  *
  * 用法：
- *   node scripts/init-workspace.mjs [--root <工作区目录>] [--force]
+ *   node scripts/init-workspace.mjs [--root <工作区目录>] [--force] [--standalone] [--dry]
+ *   --standalone 复制完整同源学习项目；已有文件保持原样（包括 --force 时）。
  *
  * 铁律：默认**绝不覆盖**已存在的文件；--force 才重写「脚手架文件」（档案与规则永不重写）。
  */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync } from 'node:fs';import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { syncProject } from './project-workspace.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SKILL = resolve(join(HERE, '..'));
@@ -30,6 +32,21 @@ const argOf = (name) => {
 const ROOT = resolve(argOf('--root') ?? process.cwd());
 const FORCE = args.includes('--force');
 const DRY = args.includes('--dry');
+
+// Explicit standalone mode carries the full framework with the folder.
+const anchorPath = join(ROOT, '.steps2great.json');
+const existingAnchor = existsSync(anchorPath) ? JSON.parse(readFileSync(anchorPath, 'utf8')) : {};
+if (args.includes('--standalone') || existingAnchor.workspaceMode === 'standalone') {
+  const anchor = existingAnchor;
+  const result = syncProject(SKILL, ROOT, { dry: DRY, anchor });
+  if (!DRY) writeFileSync(anchorPath, JSON.stringify({
+    ...anchor, version: 1, skill: 'steps2great', skillVersion: skillVersion(),
+    initializedAt: anchor.initializedAt ?? new Date().toISOString(),
+    workspaceMode: 'standalone', projectFiles: result.projectFiles,
+  }, null, 2) + '\n', 'utf8');
+  console.log(`工作区：${ROOT}；入口：AGENTS.md（可脱离 skill 目录使用）。`);
+  process.exit(0);
+}
 
 /** 读本 skill 的版本（供 .steps2great.json 记录） */
 function skillVersion() {

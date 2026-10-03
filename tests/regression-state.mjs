@@ -288,6 +288,13 @@ CASES.push({
   profile: profile({ status: '✅ 已掌握', note: LESSON_REL }).replace('## 🚦', '| **协议版本** | 2 |\n\n## 🚦'),
   expect: /FAILED/, expectMention: /\[I12\]/,
 });
+CASES.push({
+  id: 'T9', name: '路径名称含 pending 仍必须检查文件是否存在',
+  why: '待建说明不能把包含相同单词的普通文件路径当成占位', answer: ANSWER_CLEAN,
+  profile: profile({ status: '✅ 已掌握', note: LESSON_REL,
+    answerDoc: '我的学习/学科/Python/01-变量/pending-missing.md' }),
+  expect: /FAILED/, expectMention: /\[I3\]/,
+});
 for (const c of CASES) {
   setup(c);
   let out = '';

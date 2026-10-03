@@ -25,8 +25,14 @@ jobs:
       - name: State validator regression tests
         run: node tests/regression-state.mjs
 
+      - name: Full upstream state fixture coverage from bundled project
+        run: node scripts/validate-state.mjs --fixtures assets/project/tests/fixtures
+
       - name: Material retrieval regression tests
         run: node --test tests/materials.test.mjs
+
+      - name: Module progress graphics regression tests
+        run: npm run test:progress
 
       - name: Behavior evaluation harness regression tests
         run: npm run test:behavior
@@ -40,6 +46,9 @@ jobs:
       # 并退化为内置严格子集解析（--no-yaml 路径），这两条都是设计好的降级行为。
       - name: Repo self-check
         run: node scripts/check.mjs
+
+      - name: Standalone project parity and preservation
+        run: npm run test:project
 
       - name: Init a throwaway workspace
         run: node scripts/init-workspace.mjs --root .tmp-workspace
@@ -67,3 +76,22 @@ jobs:
           test "$before_profile" = "$after_profile" || { echo "❌ 学习档案被 update 改动了"; exit 1; }
           grep -q "我的私有笔记" "$RULE" || { echo "❌ 私有内容丢失"; exit 1; }
           echo "✅ update 未触碰学生资产（规则文件与学习档案哈希不变）"
+
+  standalone:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Generate the distributed standalone project
+        run: node scripts/init-workspace.mjs --root .tmp-workspace --standalone
+      - name: Install the generated project's locked dependencies
+        run: npm ci
+        working-directory: .tmp-workspace
+      - name: Install Chromium for actual Mermaid rendering
+        run: npx playwright install --with-deps chromium
+        working-directory: .tmp-workspace
+      - name: Verify the generated project including strict Mermaid rendering
+        run: npm run verify:ci
+        working-directory: .tmp-workspace

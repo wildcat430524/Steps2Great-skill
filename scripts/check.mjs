@@ -24,7 +24,7 @@ import { execFileSync } from 'node:child_process';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(join(HERE, '..'));
 const QUIET = process.argv.includes('--quiet');
-const SKIP_DIRS = new Set(['node_modules', '.git', '.tmp-workspace']);
+const SKIP_DIRS = new Set(['node_modules', '.git', '.tmp-workspace', 'assets']); // checked by upstream sync and generated-project tests
 
 const problems = [];
 const warnings = [];
@@ -44,6 +44,8 @@ const TEMPLATE_OK = [/^references\/模板\//, /^references\/学科包\/_/, /^tem
  * 正确的链接误判成坏链。（上游 `_tools/check.mjs` 用的是同一套思路。）
  */
 const TEMPLATE_VIRTUAL_BASE = {
+  '我的规则.md': '我的学习',
+  '我的规则.en.md': '我的学习',
   '学习档案模板.md': '我的学习',
   '课程路线模板.md': '我的学习/学科/<学科>',
   '摸底测试模板.md': '我的学习/学科/<学科>',
@@ -149,6 +151,8 @@ for (const abs of files) {
     const [pathPart] = target.split('#');
     if (!pathPart) continue;
     const p = pathPart.split(sep).join('/');
+    // Lesson-local SVG filenames in protocol examples are virtual template paths.
+    if (/\.svg$/i.test(p) && /<[^>]+>/.test(p)) continue;
     if (WORKSPACE_PREFIXES.some((pre) => p.startsWith(pre))) continue; // 工作区口径
     if (AGENTS_ALIAS.test(p)) continue; // 镜像里保留的上游 AGENTS.md 引用
     if (UPSTREAM_ONLY.test(p)) continue; // 上游专属、已降级说明
