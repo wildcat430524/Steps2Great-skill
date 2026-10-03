@@ -52,6 +52,9 @@ const MAP = [
   ['_tools/validate-state.mjs', 'scripts/validate-state.mjs'],
   ['tools/materials.mjs', 'scripts/materials.mjs'],
   ['tests/materials.test.mjs', 'tests/materials.test.mjs'],
+  ['tools/behavior-eval.mjs', 'scripts/behavior-eval.mjs'],
+  ['tests/behavior-eval.test.mjs', 'tests/behavior-eval.test.mjs'],
+  ['evals/behavior/', 'evals/behavior/'],
   ['docs/', 'references/docs/'],
 
   // 注意：学生工作区的脚手架（我的学习/*、资料/*）**不由本脚本镜像** ——
@@ -64,6 +67,9 @@ const MAP = [
  * 用于把上游「仓库口径」的小细节改成「skill 口径」，避免正文里留下指向不存在的路径。
  */
 const TRANSFORM = [
+  ['tools/behavior-eval.mjs', [[/\.\.\/AGENTS\.md/g, '../SKILL.md']]],
+  ['tests/behavior-eval.test.mjs', [[/\.\.\/tools\/behavior-eval\.mjs/g, '../scripts/behavior-eval.mjs']]],
+  ['docs/behavior-evaluation.md', [[/node tools\/behavior-eval\.mjs/g, 'node scripts/behavior-eval.mjs']]],
   ['tests/materials.test.mjs', [[/\.\.\/tools\/materials\.mjs/g, '../scripts/materials.mjs']]],
   ['docs/material-retrieval.md', [[/node tools\/materials\.mjs/g, 'node "$SKILL/scripts/materials.mjs"']]],
   [
