@@ -27,6 +27,33 @@ try {
   sync();
   sync(['--check']);
   console.log('PASS: upstream sync and complete mirror comparison');
+  // A learner must be able to copy the bilingual protocol examples into a lesson.
+  // Check their actual link destinations from that lesson, not from references/.
+  const lesson = join(temp, 'learner/我的学习/学科/Python/01-lists');
+  mkdirSync(lesson, { recursive: true });
+  for (const name of ['第1轮_教学引导.md', '01_教学引导.md', '01_学生回答.md']) writeFileSync(join(lesson, name), '# Lesson document\n');
+  for (const rel of ['references/协议/02_新课模板.md', 'references/en/协议/02_新课模板.en.md', 'references/模板/轮次教学引导模板.md']) {
+    const body = readFileSync(join(temp, rel), 'utf8');
+    let count = 0;
+    for (const block of body.matchAll(/^```markdown\n([\s\S]*?)^```/gm)) {
+      for (const link of block[1].matchAll(/(?<!!)\[[^\]]*\]\(([^)]+)\)/g)) {
+        const destination = resolve(lesson, link[1]);
+        assert.equal(dirname(destination), resolve(lesson), rel + ': learner navigation must remain local');
+        assert.ok(existsSync(destination), rel + ': ' + link[1]);
+        count++;
+      }
+    }
+    assert.ok(count > 0, rel + ': copied example has lesson navigation');
+  }
+  // The checker still rejects real broken links, while ignoring fenced examples.
+  writeFileSync(join(temp, 'SKILL.md'), readFileSync(join(ROOT, 'SKILL.md')));
+  run('scripts/check.mjs', ['--quiet']);
+  const example = join(temp, 'link-example.md');
+  writeFileSync(example, '```markdown\n[future document](not-created.md)\n```\n');
+  run('scripts/check.mjs', ['--quiet']);
+  writeFileSync(example, '[broken document](not-created.md)\n');
+  assert.ok(run('scripts/check.mjs', ['--quiet'], 1).includes('not-created.md'));
+  console.log('PASS: copied round navigation remains portable and real broken links are still rejected');
   const validator = readFileSync(join(temp, 'scripts/validate-state.mjs'), 'utf8');
   run('scripts/validate-state.mjs', ['--fixtures', join(UPSTREAM, 'tests/fixtures')]);
   run('tests/regression-state.mjs');

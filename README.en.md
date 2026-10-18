@@ -13,8 +13,7 @@ practises in rounds, grades your work, and writes progress into your workspace f
 
 **It is not an app, a course, or a website** — just a compact `SKILL.md`. And **it teaches no particular subject**: it defines **how to teach**.
 
-**This update: easier starts and visible achievement.** Goals become concrete skills; the module mastery bar is separate from
-the current skill list; every substantive step gets immediate feedback, ticks come only from evidence, and each small goal closes cleanly.
+**v1.2.0: synchronize the latest teaching loop and standalone learning projects.** Retain grill-me-style needs clarification at the start, preserve each round's complete teaching guide, close grading and revision within the current round, and update module mastery separately from the current skill checklist. See the [full learning workflow](./references/en/docs/learning-workflow.en.md).
 
 > **Two boundaries up front**: ① you need a client that **supports Agent Skills**, with an AI that can **read and write local files and is willing to follow the protocol** — its installation, accounts, and costs are decided by its provider, not this project; ② the simulations and regression tests below are **framework self-testing** and **do not prove real learner gains**.
 >
@@ -24,7 +23,7 @@ the current skill list; every substantive step gets immediate feedback, ticks co
 
 **Jump to**
 
-[Start](#start) · [Learning view](#learning-view-two-separate-layers) · [Core rules](#core-rules-at-a-glance) · [Install](#install) · [Your own material](#teach-from-your-own-material) · [Two shells](#two-shells-one-protocol) · [FAQ](#faq) · [Deeper](#going-deeper)
+[Start](#start) · [Full workflow](./references/en/docs/learning-workflow.en.md) · [Learning view](#learning-view-two-separate-layers) · [Core rules](#core-rules-at-a-glance) · [Install](#install) · [Your own material](#teach-from-your-own-material) · [Two shells](#two-shells-one-protocol) · [FAQ](#faq) · [Deeper](#going-deeper)
 
 ---
 

@@ -51,6 +51,7 @@ const TEMPLATE_VIRTUAL_BASE = {
   '摸底测试模板.md': '我的学习/学科/<学科>',
   '学生回答模板.md': '我的学习/学科/<学科>/NN-<课名>',
   '教学引导模板.md': '我的学习/学科/<学科>/NN-<课名>',
+  '轮次教学引导模板.md': '我的学习/学科/<学科>/NN-<课名>',
 };
 
 function walk(dir, out = []) {
@@ -145,7 +146,18 @@ for (const abs of files) {
   // 相对链接
   const dir = dirname(abs);
   const tplBase = TEMPLATE_VIRTUAL_BASE[r.split('/').pop()];
-  for (const m of text.matchAll(/\[([^\]]*)\]\(([^)\s]+)\)/g)) {
+  // Links inside fenced examples are for their eventual target documents.
+  let fence = null;
+  const linkText = text.split('\n').map((line) => {
+    const marker = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+    if (marker) {
+      if (!fence) fence = marker[1];
+      else if (marker[1][0] === fence[0] && marker[1].length >= fence.length && !marker[2].trim()) fence = null;
+      return '';
+    }
+    return fence ? '' : line;
+  }).join('\n');
+  for (const m of linkText.matchAll(/\[([^\]]*)\]\(([^)\s]+)\)/g)) {
     const target = m[2];
     if (/^(https?:|mailto:|#)/.test(target)) continue;
     const [pathPart] = target.split('#');

@@ -111,6 +111,7 @@ const TEMPLATE_DEST = {
   '摸底测试模板.md': '我的学习/学科/<学科>',
   '学生回答模板.md': '我的学习/学科/<学科>/NN-<课名>',
   '教学引导模板.md': '我的学习/学科/<学科>/NN-<课名>',
+  '轮次教学引导模板.md': '我的学习/学科/<学科>/NN-<课名>',
 };
 
 /**
@@ -332,7 +333,7 @@ function rewriteLinks(body, srcFileRel, dstFileRel) {
   const dstDir = dstFileRel.includes('/') ? dstFileRel.slice(0, dstFileRel.lastIndexOf('/')) : '';
   const downgraded = [];
 
-  const out = body.replace(LINK_RE, (whole, text, target) => {
+  const replaceLink = (whole, text, target) => {
     if (/^(https?:|mailto:|#)/.test(target)) return whole;
     // Workspace example links have no corresponding file in the skill tree.
     if (/^(?:\.\/)?(学科|我的学习|资料)\//.test(target)) return '`' + text.replace(/^`|`$/g, '') + '`';
@@ -349,7 +350,20 @@ function rewriteLinks(body, srcFileRel, dstFileRel) {
     let rel = relative(dstDir || '.', mapped).split(sep).join('/');
     if (rel === '') rel = mapped.slice(mapped.lastIndexOf('/') + 1);
     return `[${text}](${rel}${hash})`;
-  });
+  };
+
+  // Fenced examples belong to the eventual learner document, not this protocol's directory.
+  // Preserve their relative links verbatim, including in the English mirror.
+  let fence = null;
+  const out = body.split('\n').map((line) => {
+    const marker = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+    if (marker) {
+      if (!fence) fence = marker[1];
+      else if (marker[1][0] === fence[0] && marker[1].length >= fence.length && !marker[2].trim()) fence = null;
+      return line;
+    }
+    return fence ? line : line.replace(LINK_RE, replaceLink);
+  }).join('\n');
 
   return { out, downgraded };
 }
